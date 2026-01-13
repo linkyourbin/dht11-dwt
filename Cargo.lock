@@ -472,7 +472,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "embassy_f4_hse"
+name = "embassy_f4_dht11"
 version = "0.1.0"
 dependencies = [
  "cortex-m",
