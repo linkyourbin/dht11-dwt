@@ -1,5 +1,6 @@
-use embassy_stm32::gpio::{Flex, Level, Pull, Speed};
+use embassy_stm32::gpio::{Flex, Pull, Speed};
 use embassy_time::Timer;
+use super::dwt_delay::DwtDelay;
 
 #[derive(Debug, Clone, Copy, defmt::Format)]
 pub struct DhtReading {
@@ -15,14 +16,23 @@ pub enum DhtError {
 
 pub struct Dht11<'d> {
     pin: Flex<'d>,
+    delay: DwtDelay,
 }
 
 impl<'d> Dht11<'d> {
-    pub fn new(mut pin: Flex<'d>) -> Self {
+    /// Create a new DHT11 driver
+    ///
+    /// # Arguments
+    /// * `pin` - Flex GPIO pin for DHT11 data line
+    /// * `cpu_freq_hz` - CPU frequency in Hz (e.g., 168_000_000 for 168MHz)
+    pub fn new(mut pin: Flex<'d>, cpu_freq_hz: u32) -> Self {
         // Initialize pin as output high
         pin.set_as_output(Speed::VeryHigh);
         pin.set_high();
-        Self { pin }
+        Self {
+            pin,
+            delay: DwtDelay::new(cpu_freq_hz),
+        }
     }
 
     pub async fn read(&mut self) -> Result<DhtReading, DhtError> {
@@ -61,7 +71,7 @@ impl<'d> Dht11<'d> {
                 // '0' = ~28us high, '1' = ~70us high
                 let mut high_time = 0u32;
                 while self.pin.is_high() && high_time < 200 {
-                    cortex_m::asm::delay(168); // ~1us
+                    self.delay.delay_1us();
                     high_time += 1;
                 }
 
@@ -125,7 +135,7 @@ impl<'d> Dht11<'d> {
             if count > timeout_us {
                 return Err(DhtError::Timeout);
             }
-            cortex_m::asm::delay(168); // ~1us at 168MHz
+            self.delay.delay_1us();
         }
         Ok(())
     }
@@ -137,7 +147,7 @@ impl<'d> Dht11<'d> {
             if count > timeout_us {
                 return Err(DhtError::Timeout);
             }
-            cortex_m::asm::delay(168); // ~1us at 168MHz
+            self.delay.delay_1us();
         }
         Ok(())
     }

@@ -8,6 +8,7 @@ use embassy_stm32::{gpio::{Flex, Level, Output, Speed}, time::Hertz};
 use embassy_time::Timer;
 use {defmt_rtt as _, panic_probe as _};
 use embassy_stm32::Config;
+use cortex_m::peripheral::DWT;
 
 mod dht11;
 use dht11::Dht11;
@@ -37,13 +38,19 @@ async fn main(_spawner: Spawner) -> ! {
     }
     let p = embassy_stm32::init(config);
 
+    // Enable DWT cycle counter for precise timing
+    let mut core = cortex_m::Peripherals::take().unwrap();
+    core.DCB.enable_trace();
+    DWT::unlock();
+    core.DWT.enable_cycle_counter();
+
     let mut led = Output::new(p.PB13, Level::High, Speed::VeryHigh);
 
-    // Initialize DHT11 on PA8
+    // Initialize DHT11 on PA8 with CPU frequency (168MHz)
     let dht_pin = Flex::new(p.PA8);
-    let mut dht11 = Dht11::new(dht_pin);
+    let mut dht11 = Dht11::new(dht_pin, 168_000_000);
 
-    info!("DHT11 sensor initialized on PA8");
+    info!("DHT11 sensor initialized on PA8 with DWT timing");
 
     // Wait for DHT11 to stabilize after power-on (at least 1 second)
     Timer::after_secs(2).await;
